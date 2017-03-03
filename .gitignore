@@ -1,0 +1,10 @@
+.vs/
+bin/
+obj/
+packages/
+TestResults/
+*.suo
+*.user
+Scheduler/Web.config
+Scheduler/Web.Debug.config
+Scheduler/Web.Release.config
