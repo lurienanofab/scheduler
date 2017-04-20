@@ -1,4 +1,5 @@
-﻿using LNF.Cache;
+﻿using LNF.Repository.Data;
+using LNF.Cache;
 using LNF.CommonTools;
 using LNF.Control;
 using LNF.Models.Data;
@@ -6,7 +7,6 @@ using LNF.Models.Scheduler;
 using LNF.Repository;
 using LNF.Repository.Scheduler;
 using LNF.Scheduler;
-using LNF.WebApi;
 using OnlineServices.Api;
 using Scheduler.Models;
 using System;
@@ -25,13 +25,13 @@ namespace Scheduler
             Context = context;
         }
 
-        public async Task<Models.ReservationModel> Start(int reservationId)
+        public async Task<Models.ReservationModel> Start(int reservationId, int clientId, string ip)
         {
-            int clientId = CacheManager.Current.ClientID;
-
             var rsv = DA.Scheduler.Reservation.Single(reservationId);
 
-            ReservationState state = ReservationUtility.GetReservationState(rsv.ReservationID, CacheManager.Current.CurrentUser.ClientID);
+            var isInLab = KioskUtility.ClientInLab(rsv.Resource.ProcessTech.Lab.LabID, clientId, ip);
+
+            ReservationState state = ReservationUtility.GetReservationState(rsv.ReservationID, clientId, isInLab);
             var startable = ReservationUtility.IsStartable(state);
 
             if (!startable)
@@ -39,8 +39,8 @@ namespace Scheduler
 
             if (rsv != null)
             {
-                await ReservationUtility.StartReservation(rsv, clientId);
-                return CreateReservationModel(rsv);
+                await ReservationUtility.StartReservation(rsv, clientId, isInLab);
+                return CreateReservationModel(rsv, clientId, ip);
             }
             else
             {
@@ -54,8 +54,9 @@ namespace Scheduler
 
             using (var sc = await ApiProvider.NewSchedulerClient())
             {
-                var model = new LNF.Models.Scheduler.ReservationHistoryUpdate()
+                var model = new ReservationHistoryUpdate()
                 {
+                    ClientID = cmd.ClientID,
                     ReservationID = reservationId,
                     AccountID = cmd.AccountID,
                     ChargeMultiplier = chargeMultiplier,
@@ -106,7 +107,7 @@ namespace Scheduler
             }
         }
 
-        public Models.ReservationModel CreateReservationModel(Reservation rsv)
+        public Models.ReservationModel CreateReservationModel(Reservation rsv, int clientId, string ip)
         {
             var item = new Models.ReservationModel();
             item.ReservationID = rsv.ReservationID;
@@ -118,13 +119,15 @@ namespace Scheduler
             item.ReservedByClientID = rsv.Client.ClientID;
             item.ReservedByClientName = string.Format("{0} {1}", rsv.Client.FName, rsv.Client.LName);
 
+            Client c;
+
             if (rsv.ClientIDBegin.HasValue)
             {
                 if (rsv.ClientIDBegin.Value > 0)
                 {
-                    ClientModel startedBy = CacheManager.Current.GetClient(rsv.ClientIDBegin.Value);
-                    item.StartedByClientID = startedBy.ClientID;
-                    item.StartedByClientName = string.Format("{0} {1}", startedBy.FName, startedBy.LName);
+                    c = DA.Current.Single<Client>(rsv.ClientIDBegin.Value);
+                    item.StartedByClientID = c.ClientID;
+                    item.StartedByClientName = string.Format("{0} {1}", c.FName, c.LName);
                 }
                 else
                 {
@@ -134,11 +137,13 @@ namespace Scheduler
             }
             else
             {
-                item.StartedByClientID = CacheManager.Current.CurrentUser.ClientID;
-                item.StartedByClientName = string.Format("{0} {1}", CacheManager.Current.CurrentUser.FName, CacheManager.Current.CurrentUser.LName);
+                c = DA.Current.Single<Client>(clientId);
+                item.StartedByClientID = clientId;
+                item.StartedByClientName = string.Format("{0} {1}", c.FName, c.LName);
             }
 
-            ReservationState state = ReservationUtility.GetReservationState(rsv.ReservationID, CacheManager.Current.CurrentUser.ClientID);
+            var isInLab = KioskUtility.ClientInLab(rsv.Resource.ProcessTech.Lab.LabID, clientId, ip);
+            ReservationState state = ReservationUtility.GetReservationState(rsv.ReservationID, clientId, isInLab);
             item.Startable = ReservationUtility.IsStartable(state);
             item.NotStartableMessage = GetNotStartableMessage(state);
 
