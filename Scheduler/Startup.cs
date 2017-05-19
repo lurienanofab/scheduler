@@ -1,9 +1,9 @@
-﻿using Owin;
+﻿using LNF.Impl;
+using LNF.WebApi;
+using Owin;
 using System.Web.Http;
 using System.Web.Mvc;
 using System.Web.Routing;
-using LNF.Impl;
-using LNF.WebApi;
 
 namespace Scheduler
 {
