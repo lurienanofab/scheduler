@@ -1,13 +1,13 @@
-﻿using LNF.Repository.Data;
-using LNF.Cache;
+﻿using LNF.Cache;
 using LNF.CommonTools;
 using LNF.Control;
-using LNF.Models.Data;
 using LNF.Models.Scheduler;
 using LNF.Repository;
+using LNF.Repository.Data;
 using LNF.Repository.Scheduler;
 using LNF.Scheduler;
-using OnlineServices.Api;
+using OnlineServices.Api.Billing;
+using OnlineServices.Api.Scheduler;
 using Scheduler.Models;
 using System;
 using System.Configuration;
@@ -52,7 +52,7 @@ namespace Scheduler
         {
             double chargeMultiplier = 1.00 - (cmd.ForgivenPercentage / 100.0);
 
-            using (var sc = await ApiProvider.NewSchedulerClient())
+            using (var sc = new SchedulerClient())
             {
                 var model = new ReservationHistoryUpdate()
                 {
@@ -74,7 +74,7 @@ namespace Scheduler
         {
             bool isTemp = cmd.StartDate == DateTime.Now.FirstOfMonth();
 
-            using (var bc = await ApiProvider.NewBillingClient())
+            using (var bc = new BillingClient())
             {
                 LNF.Models.Billing.Process.BillingProcessResult toolDataCleanResult = null;
                 LNF.Models.Billing.Process.BillingProcessResult toolDataResult = null;
